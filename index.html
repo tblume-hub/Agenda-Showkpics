@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agenda Partagé 2026</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0e0f14; --surface: #16171e; --surface2: #1e202a;
+    --border: #2a2d3a; --text: #e8eaf0; --muted: #6b7080; --accent: #c8a96e;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:'DM Sans',sans-serif; background:var(--bg); color:var(--text); min-height:100vh; user-select:none; }
+
+header {
+padding:18px 36px; border-bottom:1px solid var(–border);
+display:flex; align-items:center; justify-content:space-between;
+background:var(–surface); position:sticky; top:0; z-index:100;
+gap:12px; flex-wrap:wrap;
+}
+header h1 { font-family:‘Playfair Display’,serif; font-size:1.35rem; color:var(–accent); }
+.header-right { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+
+.sync-badge {
+font-size:0.72rem; padding:4px 12px; border-radius:20px;
+border:1px solid var(–border); color:var(–muted);
+display:flex; align-items:center; gap:6px; transition:all 0.3s;
+}
+.sync-badge.connected { border-color:#4caf82; color:#4caf82; }
+.sync-badge.syncing   { border-color:var(–accent); color:var(–accent); }
+.sync-badge.error     { border-color:#e8604c; color:#e8604c; }
+.sync-dot { width:7px; height:7px; border-radius:50%; background:currentColor; flex-shrink:0; }
+.sync-badge.connected .sync-dot { animation:pulse 2s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+.multisel-hint {
+font-size:0.73rem; color:var(–muted); background:var(–surface2);
+border:1px solid var(–border); padding:4px 12px; border-radius:20px; transition:all 0.2s;
+}
+.multisel-hint.selecting { border-color:var(–accent); color:var(–accent); background:rgba(200,169,110,0.08); }
+
+.app { display:grid; grid-template-columns:270px 1fr; min-height:calc(100vh - 65px); }
+
+.sidebar {
+background:var(–surface); border-right:1px solid var(–border);
+padding:20px 16px; overflow-y:auto;
+position:sticky; top:65px; height:calc(100vh - 65px);
+}
+
+.sidebar-title { font-size:0.68rem; letter-spacing:0.12em; text-transform:uppercase; color:var(–muted); margin-bottom:12px; font-weight:600; }
+
+.person-card {
+background:var(–surface2); border-radius:10px; padding:10px 12px;
+margin-bottom:7px; border:1px solid var(–border); transition:all 0.18s;
+display:flex; align-items:center; gap:10px;
+}
+.person-card:hover { border-color:rgba(200,169,110,0.4); }
+
+.person-dot {
+width:30px; height:30px; border-radius:50%;
+display:flex; align-items:center; justify-content:center;
+font-size:0.78rem; font-weight:700; flex-shrink:0; color:#fff;
+text-shadow:0 1px 3px rgba(0,0,0,0.5);
+}
+
+.person-info { flex:1; min-width:0; }
+.person-card input.name-input {
+background:transparent; border:none; outline:none; color:var(–text);
+font-family:‘DM Sans’,sans-serif; font-size:0.86rem; font-weight:500; width:100%;
+}
+.person-card input.name-input::placeholder { color:var(–muted); font-style:italic; }
+.person-stats { font-size:0.7rem; color:var(–muted); margin-top:2px; }
+
+.legend { margin-top:20px; padding-top:16px; border-top:1px solid var(–border); }
+.legend-item { display:flex; align-items:center; gap:8px; margin-bottom:8px; font-size:0.76rem; color:var(–muted); }
+.leg-sym { font-size:0.95rem; font-weight:800; width:18px; text-align:center; }
+
+.main { padding:26px 30px; overflow-y:auto; }
+
+.month-nav { display:flex; flex-wrap:wrap; gap:7px; margin-bottom:24px; }
+.month-btn {
+padding:5px 14px; border-radius:20px; border:1px solid var(–border);
+background:transparent; color:var(–muted); font-family:‘DM Sans’,sans-serif;
+font-size:0.78rem; cursor:pointer; transition:all 0.18s; font-weight:500;
+}
+.month-btn:hover { border-color:var(–accent); color:var(–accent); }
+.month-btn.active { background:var(–accent); border-color:var(–accent); color:#0e0f14; font-weight:600; }
+
+.months-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(340px,1fr)); gap:22px; }
+
+.month-block { background:var(–surface); border-radius:14px; border:1px solid var(–border); overflow:hidden; display:none; }
+.month-block.visible { display:block; }
+
+.month-header { padding:14px 18px; border-bottom:1px solid var(–border); display:flex; align-items:center; justify-content:space-between; }
+.month-header h2 { font-family:‘Playfair Display’,serif; font-size:1.05rem; color:var(–accent); }
+.month-header span { font-size:0.72rem; color:var(–muted); }
+
+.cal-grid { padding:14px; }
+.cal-weekdays { display:grid; grid-template-columns:repeat(7,1fr); margin-bottom:6px; }
+.cal-weekday { text-align:center; font-size:0.65rem; color:var(–muted); font-weight:600; letter-spacing:0.06em; text-transform:uppercase; padding:3px 0; }
+.cal-days { display:grid; grid-template-columns:repeat(7,1fr); gap:3px; }
+
+.cal-day {
+border-radius:7px; display:flex; flex-direction:column; align-items:center;
+padding:4px 2px; cursor:pointer; transition:background 0.12s,border-color 0.12s;
+position:relative; min-height:58px; border:1px solid transparent; overflow:hidden;
+}
+.cal-day:hover:not(.empty) { background:var(–surface2); border-color:var(–border); }
+.cal-day.empty { cursor:default; pointer-events:none; }
+.cal-day.today { border-color:var(–accent) !important; }
+.cal-day.in-selection { background:rgba(200,169,110,0.13) !important; border-color:var(–accent) !important; }
+
+.day-num { font-size:0.7rem; font-weight:600; color:var(–text); line-height:1; margin-bottom:3px; flex-shrink:0; }
+.cal-day.empty .day-num { color:transparent; }
+.cal-day.weekend .day-num { color:var(–muted); }
+
+.day-icons { display:grid; grid-template-columns:repeat(2,1fr); gap:1px; width:100%; }
+.day-icon { font-size:0.75rem; font-weight:900; line-height:1.3; text-align:center; }
+
+/* MODAL */
+.modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:500; display:none; }
+.modal-overlay.show { display:block; }
+.modal {
+position:fixed; top:50%; left:50%; transform:translate(-50%,-50%);
+background:var(–surface2); border:1px solid var(–border); border-radius:16px;
+padding:24px; min-width:300px; max-width:420px; width:90vw;
+z-index:501; display:none; box-shadow:0 30px 80px rgba(0,0,0,0.7);
+}
+.modal.show { display:block; }
+.modal-title { font-family:‘Playfair Display’,serif; font-size:1.1rem; color:var(–accent); margin-bottom:4px; }
+.modal-subtitle { font-size:0.74rem; color:var(–muted); margin-bottom:18px; line-height:1.5; }
+.modal-persons { display:flex; flex-direction:column; gap:7px; max-height:340px; overflow-y:auto; margin-bottom:16px; }
+.modal-person { display:flex; align-items:center; gap:10px; padding:8px 12px; border-radius:9px; background:var(–surface); border:1px solid var(–border); }
+.modal-person-dot { width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:0.72rem; font-weight:700; color:#fff; flex-shrink:0; }
+.modal-person-name { flex:1; font-size:0.84rem; }
+.modal-toggle-btns { display:flex; gap:5px; }
+.modal-btn { width:34px; height:28px; border-radius:7px; border:1px solid var(–border); background:transparent; cursor:pointer; font-size:0.9rem; font-weight:900; transition:all 0.15s; display:flex; align-items:center; justify-content:center; }
+.modal-btn.dispo { color:#4caf82; border-color:rgba(76,175,130,0.35); }
+.modal-btn.dispo:hover,.modal-btn.dispo.active { background:#4caf82; color:#fff; border-color:#4caf82; }
+.modal-btn.indispo { color:#e8604c; border-color:rgba(232,96,76,0.35); }
+.modal-btn.indispo:hover,.modal-btn.indispo.active { background:#e8604c; color:#fff; border-color:#e8604c; }
+.modal-btn.clear { color:var(–muted); font-size:1rem; font-weight:400; }
+.modal-btn.clear:hover { border-color:var(–muted); color:var(–text); }
+.modal-actions { display:flex; gap:8px; }
+.modal-close { flex:1; padding:9px; border-radius:9px; border:1px solid var(–border); background:transparent; color:var(–muted); font-family:‘DM Sans’,sans-serif; font-size:0.82rem; cursor:pointer; transition:all 0.15s; }
+.modal-close:hover { border-color:var(–accent); color:var(–accent); }
+
+::-webkit-scrollbar { width:5px; }
+::-webkit-scrollbar-track { background:transparent; }
+::-webkit-scrollbar-thumb { background:var(–border); border-radius:3px; }
+
+@media (max-width:720px) {
+.app { grid-template-columns:1fr; }
+.sidebar { position:static; height:auto; border-right:none; border-bottom:1px solid var(–border); }
+.main { padding:18px 14px; }
+header { padding:14px 18px; }
+.months-grid { grid-template-columns:1fr; }
+}
+</style>
+
+</head>
+<body>
+
+<header>
+  <h1>📅 Agenda Partagé 2026</h1>
+  <div class="header-right">
+    <div class="sync-badge" id="sync-badge">
+      <div class="sync-dot"></div>
+      <span id="sync-label">Connexion…</span>
+    </div>
+    <div class="multisel-hint" id="sel-hint">🖱 Glisser ou Ctrl+clic pour multi-sélection</div>
+  </div>
+</header>
+
+<div class="app">
+  <aside class="sidebar">
+    <div class="sidebar-title">Participants</div>
+    <div id="persons-list"></div>
+    <div class="legend">
+      <div class="sidebar-title">Légende</div>
+      <div class="legend-item"><span class="leg-sym" style="color:#4caf82">✓</span> Disponible</div>
+      <div class="legend-item"><span class="leg-sym" style="color:#e8604c">✗</span> Indisponible</div>
+      <div class="legend-item"><span class="leg-sym" style="color:var(--accent);font-size:0.7rem">▣</span> Aujourd'hui</div>
+    </div>
+  </aside>
+  <main class="main">
+    <div class="month-nav" id="month-nav"></div>
+    <div class="months-grid" id="months-grid"></div>
+  </main>
+</div>
+
+<div class="modal-overlay" id="modal-overlay"></div>
+<div class="modal" id="modal"></div>
+
+<!-- Firebase SDK (compat CDN — fonctionne sans npm ni bundler) -->
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+
+<script>
+// ─── FIREBASE CONFIG ───────────────────────────────────────────────
+const firebaseConfig = {
+  apiKey: "AIzaSyBd3NdP6Yq7PKfy36U38527iB-HOxe4cRs",
+  authDomain: "agenda-showkpics.firebaseapp.com",
+  databaseURL: "https://agenda-showkpics-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "agenda-showkpics",
+  storageBucket: "agenda-showkpics.firebasestorage.app",
+  messagingSenderId: "23101127228",
+  appId: "1:23101127228:web:114f636f27f73e91eba139"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+// ─── CONSTANTES ────────────────────────────────────────────────────
+const COLORS = [
+  {id:1,hex:'#e8604c'},{id:2,hex:'#f0a500'},{id:3,hex:'#4caf82'},
+  {id:4,hex:'#5b9cf6'},{id:5,hex:'#b06ef0'},{id:6,hex:'#f06ea0'},
+  {id:7,hex:'#4ecdd4'},{id:8,hex:'#e8c84c'},
+];
+
+const MONTHS = [
+  {idx:4,name:'Mai'},{idx:5,name:'Juin'},{idx:6,name:'Juillet'},
+  {idx:7,name:'Août'},{idx:8,name:'Septembre'},{idx:9,name:'Octobre'},
+  {idx:10,name:'Novembre'},{idx:11,name:'Décembre'},
+];
+
+const WEEKDAYS = ['L','M','M','J','V','S','D'];
+const YEAR = 2026;
+
+// ─── STATE LOCAL ───────────────────────────────────────────────────
+const state = {
+  persons: COLORS.map(c => ({id:c.id, name:'', color:c.hex})),
+  days: {},                  // snapshot Firebase
+  visibleMonths: MONTHS.map(m=>m.idx),
+  selectedKeys: new Set(),
+  isDragging: false,
+};
+
+// ─── SYNC BADGE ────────────────────────────────────────────────────
+function setSyncBadge(status, label) {
+  const badge = document.getElementById('sync-badge');
+  const lbl   = document.getElementById('sync-label');
+  badge.className = 'sync-badge ' + status;
+  lbl.textContent = label;
+}
+
+// ─── FIREBASE LISTENERS ────────────────────────────────────────────
+
+// 1. Disponibilités — écoute en temps réel
+db.ref('days').on('value', snap => {
+  state.days = snap.val() || {};
+  renderCalendars();
+  renderSidebar();
+  setSyncBadge('connected', '🔴 Live — synchronisé');
+}, err => {
+  setSyncBadge('error', 'Erreur connexion');
+  console.error(err);
+});
+
+// 2. Noms des personnes — écoute en temps réel
+db.ref('persons').on('value', snap => {
+  const data = snap.val() || {};
+  state.persons.forEach(p => {
+    if (data[p.id] && data[p.id].name !== undefined) {
+      p.name = data[p.id].name;
+    }
+  });
+  renderSidebar();
+  renderCalendars();
+});
+
+// ─── ÉCRITURE FIREBASE ─────────────────────────────────────────────
+function fbSetStatus(key, pid, status) {
+  const currentVal = (state.days[key] || {})[pid] || null;
+  if (currentVal === status) {
+    db.ref(`days/${key}/${pid}`).remove();
+  } else {
+    setSyncBadge('syncing', '⏳ Enregistrement…');
+    db.ref(`days/${key}/${pid}`).set(status);
+  }
+}
+
+function fbApplyToSelection(pid, status) {
+  const updates = {};
+  state.selectedKeys.forEach(key => {
+    const currentVal = (state.days[key] || {})[pid] || null;
+    updates[`days/${key}/${pid}`] = (currentVal === status) ? null : status;
+  });
+  setSyncBadge('syncing', '⏳ Enregistrement…');
+  db.ref().update(updates);
+}
+
+function fbClearPersonFromSelection(pid) {
+  const updates = {};
+  state.selectedKeys.forEach(key => {
+    updates[`days/${key}/${pid}`] = null;
+  });
+  db.ref().update(updates);
+}
+
+function fbSetPersonName(pid, name) {
+  db.ref(`persons/${pid}/name`).set(name);
+}
+
+// ─── SIDEBAR ───────────────────────────────────────────────────────
+function renderSidebar() {
+  const list = document.getElementById('persons-list');
+  // Préserver le focus si l'utilisateur tape
+  const focusedPid = document.activeElement?.dataset?.pid;
+  list.innerHTML = '';
+
+  state.persons.forEach(p => {
+    const card = document.createElement('div');
+    card.className = 'person-card';
+
+    const dot = document.createElement('div');
+    dot.className = 'person-dot';
+    dot.style.background = p.color;
+    dot.textContent = p.name ? p.name[0].toUpperCase() : p.id;
+
+    const info = document.createElement('div');
+    info.className = 'person-info';
+
+    const inp = document.createElement('input');
+    inp.className = 'name-input';
+    inp.placeholder = `Personne ${p.id}`;
+    inp.value = p.name;
+    inp.maxLength = 24;
+    inp.dataset.pid = p.id;
+
+    let nameTimer = null;
+    inp.addEventListener('input', e => {
+      p.name = e.target.value;
+      dot.textContent = p.name ? p.name[0].toUpperCase() : p.id;
+      // Debounce Firebase write (évite spam à chaque lettre)
+      clearTimeout(nameTimer);
+      nameTimer = setTimeout(() => fbSetPersonName(p.id, p.name), 600);
+    });
+    inp.addEventListener('click', e => e.stopPropagation());
+
+    // Restaurer le focus si c'était ce champ
+    if (focusedPid && parseInt(focusedPid) === p.id) {
+      setTimeout(() => inp.focus(), 0);
+    }
+
+    let d=0, i=0;
+    Object.values(state.days).forEach(v => {
+      if (v[p.id]==='dispo') d++;
+      if (v[p.id]==='indispo') i++;
+    });
+    const stats = document.createElement('div');
+    stats.className = 'person-stats';
+    stats.innerHTML = `<span style="color:#4caf82">✓</span> ${d} &nbsp;<span style="color:#e8604c">✗</span> ${i}`;
+
+    info.appendChild(inp);
+    info.appendChild(stats);
+    card.appendChild(dot);
+    card.appendChild(info);
+    list.appendChild(card);
+  });
+}
+
+// ─── MONTH NAV ─────────────────────────────────────────────────────
+function renderMonthNav() {
+  const nav = document.getElementById('month-nav');
+  nav.innerHTML = '';
+  const allBtn = document.createElement('button');
+  allBtn.className = 'month-btn' + (state.visibleMonths.length === MONTHS.length ? ' active' : '');
+  allBtn.textContent = 'Tous';
+  allBtn.onclick = () => { state.visibleMonths = MONTHS.map(m=>m.idx); renderMonthNav(); renderCalendars(); };
+  nav.appendChild(allBtn);
+  MONTHS.forEach(m => {
+    const btn = document.createElement('button');
+    btn.className = 'month-btn' + (state.visibleMonths.length===1 && state.visibleMonths[0]===m.idx ? ' active' : '');
+    btn.textContent = m.name;
+    btn.onclick = () => { state.visibleMonths=[m.idx]; renderMonthNav(); renderCalendars(); };
+    nav.appendChild(btn);
+  });
+}
+
+// ─── CALENDARS ─────────────────────────────────────────────────────
+function dateKey(y,m,d) {
+  return `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+}
+
+function getStatus(key, pid) { return (state.days[key]||{})[pid] || null; }
+
+function renderCalendars() {
+  const grid = document.getElementById('months-grid');
+  grid.innerHTML = '';
+  MONTHS.forEach(m => {
+    const block = buildMonthBlock(m.idx, m.name);
+    block.classList.toggle('visible', state.visibleMonths.includes(m.idx));
+    grid.appendChild(block);
+  });
+}
+
+function buildMonthBlock(monthIdx, monthName) {
+  const block = document.createElement('div');
+  block.className = 'month-block';
+
+  const entries = countMonthEntries(monthIdx);
+  const hdr = document.createElement('div');
+  hdr.className = 'month-header';
+  const h2 = document.createElement('h2');
+  h2.textContent = `${monthName} 2026`;
+  const sp = document.createElement('span');
+  sp.textContent = entries > 0 ? `${entries} entrée${entries>1?'s':''}` : '';
+  hdr.appendChild(h2); hdr.appendChild(sp);
+  block.appendChild(hdr);
+
+  const calGrid = document.createElement('div');
+  calGrid.className = 'cal-grid';
+
+  const wdRow = document.createElement('div');
+  wdRow.className = 'cal-weekdays';
+  WEEKDAYS.forEach(d => {
+    const wd = document.createElement('div');
+    wd.className = 'cal-weekday';
+    wd.textContent = d;
+    wdRow.appendChild(wd);
+  });
+  calGrid.appendChild(wdRow);
+
+  const daysRow = document.createElement('div');
+  daysRow.className = 'cal-days';
+
+  const firstDow = new Date(YEAR, monthIdx, 1).getDay();
+  const offset = firstDow===0 ? 6 : firstDow-1;
+  const daysInMonth = new Date(YEAR, monthIdx+1, 0).getDate();
+  const today = new Date();
+
+  for (let i=0; i<offset; i++) {
+    const e = document.createElement('div');
+    e.className = 'cal-day empty';
+    const n = document.createElement('div'); n.className='day-num';
+    e.appendChild(n); daysRow.appendChild(e);
+  }
+
+  for (let d=1; d<=daysInMonth; d++) {
+    const key = dateKey(YEAR, monthIdx, d);
+    const dow = new Date(YEAR, monthIdx, d).getDay();
+    const isWeekend = dow===0||dow===6;
+    const isToday = today.getFullYear()===YEAR && today.getMonth()===monthIdx && today.getDate()===d;
+
+    const dayEl = document.createElement('div');
+    dayEl.className = 'cal-day' + (isWeekend?' weekend':'');
+    if (isToday) dayEl.classList.add('today');
+    if (state.selectedKeys.has(key)) dayEl.classList.add('in-selection');
+    dayEl.dataset.key = key;
+
+    const numEl = document.createElement('div');
+    numEl.className = 'day-num';
+    numEl.textContent = d;
+    dayEl.appendChild(numEl);
+
+    const iconsEl = document.createElement('div');
+    iconsEl.className = 'day-icons';
+    state.persons.forEach(p => {
+      const status = getStatus(key, p.id);
+      if (status) {
+        const icon = document.createElement('div');
+        icon.className = 'day-icon';
+        icon.style.color = p.color;
+        icon.textContent = status==='dispo' ? '✓' : '✗';
+        iconsEl.appendChild(icon);
+      }
+    });
+    dayEl.appendChild(iconsEl);
+
+    dayEl.addEventListener('mousedown', e => onMouseDown(e, key));
+    dayEl.addEventListener('mouseenter', () => onMouseEnter(key));
+    dayEl.addEventListener('click', e => onDayClick(e, key, monthName, d));
+
+    daysRow.appendChild(dayEl);
+  }
+
+  calGrid.appendChild(daysRow);
+  block.appendChild(calGrid);
+  return block;
+}
+
+function countMonthEntries(monthIdx) {
+  let c=0;
+  Object.entries(state.days).forEach(([k,v]) => {
+    if (parseInt(k.split('-')[1])-1===monthIdx) c+=Object.keys(v).length;
+  });
+  return c;
+}
+
+// ─── DRAG MULTI-SELECT ─────────────────────────────────────────────
+let dragAccum = new Set();
+
+function onMouseDown(e, key) {
+  if (e.button!==0) return;
+  if (e.ctrlKey||e.metaKey) {
+    if (state.selectedKeys.has(key)) state.selectedKeys.delete(key);
+    else state.selectedKeys.add(key);
+    refreshHighlight(); updateHint();
+    e.preventDefault(); return;
+  }
+  state.isDragging = true;
+  dragAccum = new Set([key]);
+  state.selectedKeys = new Set([key]);
+  refreshHighlight(); updateHint();
+  e.preventDefault();
+}
+
+function onMouseEnter(key) {
+  if (!state.isDragging) return;
+  dragAccum.add(key);
+  state.selectedKeys = new Set(dragAccum);
+  refreshHighlight(); updateHint();
+}
+
+document.addEventListener('mouseup', () => {
+  if (state.isDragging) {
+    state.isDragging = false;
+    if (state.selectedKeys.size >= 1) openModal();
+  }
+});
+
+function onDayClick(e, key, monthName, day) {
+  if (e.ctrlKey||e.metaKey) return;
+}
+
+function refreshHighlight() {
+  document.querySelectorAll('.cal-day[data-key]').forEach(el => {
+    el.classList.toggle('in-selection', state.selectedKeys.has(el.dataset.key));
+  });
+}
+
+function updateHint() {
+  const hint = document.getElementById('sel-hint');
+  const n = state.selectedKeys.size;
+  if (n>0) { hint.textContent=`${n} jour${n>1?'s':''} sélectionné${n>1?'s':''}`; hint.classList.add('selecting'); }
+  else { hint.textContent='🖱 Glisser ou Ctrl+clic pour multi-sélection'; hint.classList.remove('selecting'); }
+}
+
+// ─── MODAL ─────────────────────────────────────────────────────────
+function openModal() {
+  const modal = document.getElementById('modal');
+  const overlay = document.getElementById('modal-overlay');
+  const keys = [...state.selectedKeys];
+  const n = keys.length;
+
+  modal.innerHTML = '';
+
+  const title = document.createElement('div');
+  title.className = 'modal-title';
+  if (n===1) {
+    const parts = keys[0].split('-');
+    const dateObj = new Date(YEAR, parseInt(parts[1])-1, parseInt(parts[2]));
+    const dowNames = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
+    const mNames = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+    title.textContent = `${dowNames[dateObj.getDay()]} ${parts[2]} ${mNames[parseInt(parts[1])-1]}`;
+  } else {
+    title.textContent = `${n} jours sélectionnés`;
+  }
+
+  const subtitle = document.createElement('div');
+  subtitle.className = 'modal-subtitle';
+  subtitle.textContent = n>1
+    ? `✓ ou ✗ s'applique à tous les jours sélectionnés. − efface.`
+    : `Définissez les disponibilités pour cette journée.`;
+
+  modal.appendChild(title);
+  modal.appendChild(subtitle);
+
+  const personsEl = document.createElement('div');
+  personsEl.className = 'modal-persons';
+
+  state.persons.forEach(p => {
+    const row = document.createElement('div');
+    row.className = 'modal-person';
+
+    const dot = document.createElement('div');
+    dot.className = 'modal-person-dot';
+    dot.style.background = p.color;
+    dot.textContent = p.name ? p.name[0].toUpperCase() : p.id;
+
+    const name = document.createElement('div');
+    name.className = 'modal-person-name';
+    name.textContent = p.name || `Personne ${p.id}`;
+
+    const btns = document.createElement('div');
+    btns.className = 'modal-toggle-btns';
+
+    let currentStatus = null;
+    if (n===1) currentStatus = getStatus(keys[0], p.id);
+    if (n>1) {
+      const statuses = keys.map(k => getStatus(k,p.id)).filter(Boolean);
+      if (statuses.length===n && statuses.every(s=>s==='dispo')) currentStatus='dispo';
+      else if (statuses.length===n && statuses.every(s=>s==='indispo')) currentStatus='indispo';
+    }
+
+    const dBtn = document.createElement('button');
+    dBtn.className = 'modal-btn dispo' + (currentStatus==='dispo'?' active':'');
+    dBtn.title = 'Disponible'; dBtn.textContent = '✓';
+    dBtn.onclick = () => { fbApplyToSelection(p.id,'dispo'); openModal(); };
+
+    const iBtn = document.createElement('button');
+    iBtn.className = 'modal-btn indispo' + (currentStatus==='indispo'?' active':'');
+    iBtn.title = 'Indisponible'; iBtn.textContent = '✗';
+    iBtn.onclick = () => { fbApplyToSelection(p.id,'indispo'); openModal(); };
+
+    const clrBtn = document.createElement('button');
+    clrBtn.className = 'modal-btn clear';
+    clrBtn.title = 'Effacer'; clrBtn.textContent = '−';
+    clrBtn.onclick = () => { fbClearPersonFromSelection(p.id); openModal(); };
+
+    btns.appendChild(dBtn); btns.appendChild(iBtn); btns.appendChild(clrBtn);
+    row.appendChild(dot); row.appendChild(name); row.appendChild(btns);
+    personsEl.appendChild(row);
+  });
+
+  modal.appendChild(personsEl);
+
+  const actions = document.createElement('div');
+  actions.className = 'modal-actions';
+  const closeBtn = document.createElement('button');
+  closeBtn.className = 'modal-close';
+  closeBtn.textContent = 'Fermer';
+  closeBtn.onclick = doClose;
+  actions.appendChild(closeBtn);
+  modal.appendChild(actions);
+
+  modal.classList.add('show');
+  overlay.classList.add('show');
+}
+
+function doClose() {
+  document.getElementById('modal').classList.remove('show');
+  document.getElementById('modal-overlay').classList.remove('show');
+  state.selectedKeys = new Set();
+  refreshHighlight();
+  updateHint();
+}
+
+document.getElementById('modal-overlay').addEventListener('click', doClose);
+
+// ─── INIT ──────────────────────────────────────────────────────────
+renderMonthNav();
+renderCalendars();
+renderSidebar();
+</script>
+
+</body>
+</html>
